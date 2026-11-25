@@ -25,7 +25,7 @@ export default function weekView({ params }) {
   const sugg = isCurrent ? suggestions() : [];
 
   const addFromSuggestion = (s) => {
-    upsert('tasks', { title: s.title, accountId: s.accountId || '', oppId: s.oppId || '', category: s.category, priority: s.score >= 80 ? 'Alta' : s.score >= 60 ? 'Média' : 'Baixa', status: 'A fazer', week: ws, due: s.due && s.due >= ws && s.due <= we ? s.due : '', estMin: s.estMin || 60, notes: s.reason, sugKey: s.key });
+    upsert('tasks', { title: s.title, accountId: s.accountId || '', prospectId: s.prospectId || '', category: s.category, priority: s.score >= 80 ? 'Alta' : s.score >= 60 ? 'Média' : 'Baixa', status: 'A fazer', week: ws, due: s.due && s.due >= ws && s.due <= we ? s.due : '', estMin: s.estMin || 60, notes: s.reason, sugKey: s.key });
     toast('Adicionada à semana');
   };
   const dismiss = (s, days) => {
@@ -37,7 +37,7 @@ export default function weekView({ params }) {
   // Adição rápida
   const qTitle = h('input', { placeholder: 'Nova tarefa… (Enter para adicionar)' });
   const qCat = h('select', null, ENUMS.taskCategory.map((c) => h('option', null, c)));
-  const qAcc = h('select', null, h('option', { value: '' }, 'Sem conta'), accountOptions().map((a) => h('option', { value: a.id }, a.name)));
+  const qAcc = h('select', null, h('option', { value: '' }, 'Sem conta'), accountOptions().map((a) => h('option', { value: a.id }, a.label)));
   const qPri = h('select', null, ENUMS.priority.map((p) => h('option', { selected: p === 'Média' }, p)));
   const quickAdd = () => {
     if (!qTitle.value.trim()) return;

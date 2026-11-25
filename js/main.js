@@ -6,11 +6,10 @@ import { accName, contactName } from './engine.js';
 import dashboard from './views/dashboard.js';
 import { accountsView, accountDetail } from './views/accounts.js';
 import weekView from './views/week.js';
-import commercialView from './views/commercial.js';
-import licensesView from './views/licenses.js';
+import prepipelineView from './views/prepipeline.js';
+import renewalsView from './views/renewals.js';
 import technicalView from './views/technical.js';
 import contactsView from './views/contacts.js';
-import prospectingView from './views/prospecting.js';
 import planningView from './views/planning.js';
 import mapView from './views/map.js';
 import settingsView from './views/settings.js';
@@ -21,16 +20,15 @@ const NAV = [
   ['dashboard', 'Painel', '◧'],
   ['week', 'Minha semana', '☑'],
   ['accounts', 'Contas', '▦'],
-  ['commercial', 'Comercial', '◆'],
-  ['licenses', 'Licenças', '⧉'],
+  ['prepipeline', 'Pré-pipeline', '◆'],
+  ['renewals', 'Renovações & licenças', '⧉'],
   ['technical', 'Técnico', '⚙'],
   ['contacts', 'Contatos', '☺'],
-  ['prospecting', 'Prospecção', '⌕'],
   ['planning', 'Planejamento', '◷'],
   ['map', 'Mapa', '⌖'],
   ['settings', 'Configurações', '≡'],
 ];
-const VIEWS = { dashboard, week: weekView, accounts: accountsView, account: accountDetail, commercial: commercialView, licenses: licensesView, technical: technicalView, contacts: contactsView, prospecting: prospectingView, planning: planningView, map: mapView, settings: settingsView };
+const VIEWS = { dashboard, week: weekView, accounts: accountsView, account: accountDetail, prepipeline: prepipelineView, renewals: renewalsView, technical: technicalView, contacts: contactsView, planning: planningView, map: mapView, settings: settingsView };
 
 export function parseRoute() {
   const raw = location.hash.replace(/^#\/?/, '') || 'dashboard';
@@ -163,9 +161,10 @@ function globalSearch() {
     if (q.length < 2) return results.classList.remove('on');
     const db = S.store.db;
     const hits = [
-      ...db.accounts.filter((a) => norm(`${a.name} ${a.group} ${a.ansysNumber} ${a.city}`).includes(q)).map((a) => ['Conta', a.name, `#/account/${a.id}`]),
+      ...db.accounts.filter((a) => norm(`${a.name} ${a.sfName} ${a.ansysNumber} ${a.city}`).includes(q)).map((a) => ['Conta', a.name, `#/account/${a.id}`]),
       ...db.contacts.filter((c) => norm(`${c.name} ${c.title} ${c.email}`).includes(q)).map((c) => ['Contato', `${c.name} · ${accName(c.accountId)}`, `#/account/${c.accountId}?tab=contacts`]),
-      ...db.opportunities.filter((o) => norm(`${o.name} ${o.products} ${o.quote}`).includes(q)).map((o) => ['Oportunidade', `${o.name} · ${accName(o.accountId)}`, `#/account/${o.accountId}?tab=commercial`]),
+      ...db.units.filter((u) => norm(`${u.name} ${u.products} ${u.challenges}`).includes(q)).map((u) => ['Unidade', `${u.name} · ${accName(u.accountId)}`, `#/account/${u.accountId}?tab=map`]),
+      ...db.prospects.filter((o) => norm(`${o.title} ${o.products} ${o.sfOpp}`).includes(q)).map((o) => ['Pré-pipeline', `${o.title} · ${accName(o.accountId)}`, `#/account/${o.accountId}?tab=pre`]),
       ...db.licenses.filter((l) => norm(l.product).includes(q)).map((l) => ['Licença', `${l.product} · ${accName(l.accountId)}`, `#/account/${l.accountId}?tab=licenses`]),
     ].slice(0, 12);
     if (!hits.length) results.append(h('div', { class: 'gr-empty' }, 'Nada encontrado'));
@@ -207,10 +206,10 @@ export function quickLog(preset = {}) {
           if (!f.validate()) return;
           const rec = S.upsert('interactions', f.read());
           if (mkTask.checked && rec.followUpDate) {
-            S.upsert('tasks', { title: `Follow-up: ${rec.subject}`, accountId: rec.accountId, oppId: rec.oppId, category: 'Relacionamento', priority: 'Alta', status: 'A fazer', week: weekStart(rec.followUpDate), due: rec.followUpDate, estMin: 30, linkInteraction: rec.id });
+            S.upsert('tasks', { title: `Follow-up: ${rec.subject}`, accountId: rec.accountId, prospectId: rec.prospectId, category: 'Relacionamento', priority: 'Alta', status: 'A fazer', week: weekStart(rec.followUpDate), due: rec.followUpDate, estMin: 30, linkInteraction: rec.id });
           }
           if (mkTech.checked) {
-            S.upsert('techActivities', { accountId: rec.accountId, date: rec.date, type: techType.value, title: rec.subject, status: rec.date > today() ? 'Planejada' : 'Realizada', result: '—', specialist: rec.esssTeam, oppId: rec.oppId, notes: rec.summary });
+            S.upsert('techActivities', { accountId: rec.accountId, date: rec.date, type: techType.value, title: rec.subject, status: rec.date > today() ? 'Planejada' : 'Realizada', result: '—', specialist: rec.esssTeam, prospectId: rec.prospectId, unitId: rec.unitId, notes: rec.summary });
           }
           close();
           showReport(rec);
@@ -258,6 +257,8 @@ let scheduled = false;
 export function render() {
   if (!S.store.db || !mainEl) return;
   const r = parseRoute();
+  if (r.view === 'commercial' || r.view === 'prospecting') r.view = 'prepipeline';
+  if (r.view === 'licenses') r.view = 'renewals';
   const view = VIEWS[r.view] || dashboard;
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.k === (r.view === 'account' ? 'accounts' : r.view)));
   const y = window.scrollY;

@@ -56,7 +56,7 @@ export function miniMap(a) {
 
 export default function mapView() {
   const db = store.db;
-  const accs = db.accounts.filter((a) => a.status !== 'Repassada');
+  const accs = db.accounts.filter((a) => a.status !== 'Saiu da carteira');
   const located = accs.filter((a) => a.lat != null && a.lat !== '' && a.lng != null && a.lng !== '');
   const missing = accs.filter((a) => !located.includes(a));
   const box = h('div', { class: 'bigmap' });

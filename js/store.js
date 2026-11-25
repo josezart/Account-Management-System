@@ -6,7 +6,7 @@ import * as gh from './github.js';
 const LS_VAULT = 'caeacc.vault';
 const LS_SYNC = 'caeacc.sync'; // { pendingSince, lastPush, lastPull }
 const SS_KEY = 'caeacc.session';
-export const COLLECTIONS = ['accounts', 'contacts', 'licenses', 'opportunities', 'sales', 'interactions', 'techActivities', 'techPool', 'trainings', 'prospects', 'tasks', 'plans'];
+export const COLLECTIONS = ['accounts', 'units', 'contacts', 'licenses', 'mrp', 'sales', 'prospects', 'interactions', 'techActivities', 'techPool', 'trainings', 'engagements', 'tasks', 'quotas', 'plans'];
 
 export const store = {
   db: null,
@@ -242,6 +242,7 @@ export const all = (c) => store.db[c];
 export const get = (c, id) => store.db[c].find((r) => r.id === id);
 export function upsert(c, rec) {
   const now = new Date().toISOString();
+  if (c === 'prospects' && rec.stage === '✓ No Salesforce' && !rec.sfAt) rec = { ...rec, sfAt: now.slice(0, 10) };
   if (!rec.id) {
     rec = { id: uid(c.slice(0, 2)), createdAt: now, ...rec };
     rec.updatedAt = now;
@@ -264,8 +265,13 @@ export function remove(c, id) {
   store.db[c] = store.db[c].filter((r) => r.id !== id);
   if (c === 'accounts') {
     COLLECTIONS.forEach((k) => {
-      if (k !== 'accounts' && k !== 'plans') store.db[k] = store.db[k].filter((r) => r.accountId !== id);
+      if (!['accounts', 'plans', 'quotas'].includes(k)) store.db[k] = store.db[k].filter((r) => r.accountId !== id);
     });
+    store.db.accounts.forEach((a) => a.parentId === id && (a.parentId = ''));
+  }
+  if (c === 'units') {
+    store.db.units.forEach((u) => u.parentUnitId === id && (u.parentUnitId = ''));
+    ['contacts', 'licenses', 'prospects', 'interactions', 'techActivities', 'techPool', 'trainings', 'engagements'].forEach((k) => store.db[k].forEach((r) => r.unitId === id && (r.unitId = '')));
   }
   save();
 }

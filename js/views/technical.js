@@ -26,7 +26,7 @@ function activities(params) {
   const inP = db.techActivities.filter((t) => inRange(t.date, b));
   const done = inP.filter((t) => t.status === 'Realizada');
   const byType = ENUMS.techType.map((t) => [t, done.filter((x) => x.type === t).length]).filter(([, n]) => n);
-  const linked = done.filter((t) => t.oppId).length;
+  const linked = done.filter((t) => t.prospectId).length;
   const options = [per.quarter, per.year, 'FY' + (fyOf(today(), fyEnd) - 1), 'all'];
   return h('div', null,
     h('div', { class: 'filters' }, h('select', { onchange: (e) => setParam('p', e.target.value) }, options.map((o) => h('option', { value: o, selected: o === pkey }, o === 'all' ? 'Todo o período' : periodLabel(o))))),
@@ -34,7 +34,7 @@ function activities(params) {
       kpi('Realizadas', done.length, periodLabel(pkey)),
       kpi('Planejadas', inP.filter((t) => t.status === 'Planejada').length, 'no período'),
       kpi('Horas técnicas', done.reduce((s, t) => s + (Number(t.hours) || 0), 0), 'registradas'),
-      kpi('Ligadas a oportunidade', done.length ? Math.round((linked / done.length) * 100) + '%' : '—', `${linked} atividades`),
+      kpi('Ligadas ao pré-pipeline', done.length ? Math.round((linked / done.length) * 100) + '%' : '—', `${linked} atividades`),
       kpi('Resultado positivo', done.filter((t) => t.result === 'Positivo').length, 'avaliação do cliente'),
       kpi('Contas atendidas', new Set(done.map((t) => t.accountId)).size, 'no período'),
     ),

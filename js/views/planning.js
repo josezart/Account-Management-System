@@ -1,4 +1,8 @@
 import { store, upsert } from '../store.js';
+import { openForm, table } from '../ui.js';
+import { quotaSummary, quotaFor } from '../engine.js';
+import { engagementCols } from './accounts.js';
+import { inRange } from '../util.js';
 import { h, section, btn, tabs, kpi, modal, toast, badge, confirmBox, accountOptions } from '../ui.js';
 import { periodMetrics, accName } from '../engine.js';
 import { ENUMS } from '../schema.js';
@@ -45,7 +49,7 @@ export default function planningView({ params }) {
   const goalForm = (g = {}) => {
     const text = h('input', { value: g.text || '', placeholder: 'Ex.: Renovar contrato do CPSN com crescimento' });
     const motor = h('select', null, h('option', { value: '' }, '—'), ENUMS.growthMotor.map((x) => h('option', { selected: g.motor === x }, x)));
-    const acc = h('select', null, h('option', { value: '' }, 'Carteira toda'), accountOptions().map((a) => h('option', { value: a.id, selected: g.accountId === a.id }, a.name)));
+    const acc = h('select', null, h('option', { value: '' }, 'Carteira toda'), accountOptions().map((a) => h('option', { value: a.id, selected: g.accountId === a.id }, a.label)));
     const metric = h('input', { value: g.metric || '', placeholder: 'Ex.: nº de visitas, R$ fechado, nº de PoCs' });
     const target = h('input', { type: 'number', step: 'any', value: g.target ?? '' });
     const current = h('input', { type: 'number', step: 'any', value: g.current ?? '' });
@@ -95,14 +99,16 @@ export default function planningView({ params }) {
       btn('→', () => setParam('p', shift(key, 1)), 'ghost'),
       key !== cur[level] ? btn('Atual', () => setParam('p', ''), 'small ghost') : null,
     ),
+    quotaBlock(key, level, cur),
     h('div', { class: 'kpis' },
-      kpi('Vendas fechadas', fmt.compact(m.salesValue), `${m.salesCount} vendas`),
+      kpi('Vendas no período', fmt.usd(m.nb + m.rr), `NB ${fmt.usd(m.nb)} · RR ${fmt.usd(m.rr)} (base importada)`),
       kpi('Interações', m.interactions, `${m.visits} visitas presenciais`),
       kpi('Atividades técnicas', m.techCount, `${m.techHours} h`),
-      kpi('Novas oportunidades', m.newOpps, `${m.won} ganhas`),
-      kpi('Prospecção', m.prospects, 'novos itens'),
+      kpi('Pré-pipeline', m.newPre, `novas · ${m.toSf} levadas ao Salesforce`),
+      kpi('Agenda executiva', `${m.execDone}/${m.execPlanned}`, 'realizados / previstos'),
       kpi('Tarefas', `${m.tasksDone}/${m.tasks}`, m.salesRatio != null ? `${m.salesRatio}% ligadas a vendas` : ''),
     ),
+    execBlock(key, b),
     h('div', { class: 'grid-2' },
       h('div', null,
         section('Foco do período', null,
@@ -116,4 +122,49 @@ export default function planningView({ params }) {
       ),
     ),
   );
+}
+
+// ---------- Meta (USD NTA) ----------
+function bar(label, done, target) {
+  const pct = target ? Math.round(((done || 0) / target) * 100) : null;
+  return h('div', { class: 'quota-row' },
+    h('div', { class: 'quota-label' }, h('b', null, label), h('small', { class: 'muted' }, target ? `${fmt.usdFull(done || 0)} de ${fmt.usdFull(target)}` : 'meta não definida')),
+    h('div', { class: 'progress big' + (pct >= 100 ? ' done' : '') }, h('i', { style: { width: Math.min(100, pct || 0) + '%' } }), h('span', null, pct != null ? pct + '%' : '—')));
+}
+function quotaBlock(key, level, cur) {
+  const qKey = level === 'month' ? cur.quarter && monthQuarter(key) : key;
+  const { q, ref, mrp } = quotaSummary(qKey);
+  const edit = () => openForm('quotas', quotaFor(qKey) || { period: qKey }, { title: `Meta ${periodLabel(qKey)} (USD NTA)` });
+  const tbT = (Number(q?.rrTarget) || 0) + (Number(q?.nbTarget) || 0);
+  const tbD = (Number(q?.rrDone) || 0) + (Number(q?.nbDone) || 0);
+  const quarters = level === 'year' ? [1, 2, 3, 4].map((i) => `${key}-T${i}`) : [];
+  return section(`Atingimento da meta · ${periodLabel(qKey)}${q?.derived ? ' (soma dos trimestres)' : ''}`, h('div', { class: 'card-actions' }, h('small', { class: 'muted' }, 'USD NTA · edição manual'), btn('Editar meta', edit, 'small')),
+    h('div', { class: 'quota' },
+      bar('Renewals', q?.rrDone, q?.rrTarget),
+      bar('New Business', q?.nbDone, q?.nbTarget),
+      bar('Total Business', tbD, tbT)),
+    h('small', { class: 'muted block' }, `Referência: MRP do período ${fmt.usdFull(mrp)} · vendas importadas: RR ${fmt.usdFull(ref.rr)}, NB ${fmt.usdFull(ref.nb)}${q?.notes ? ' · ' + q.notes : ''}`),
+    quarters.length ? table(quarters.map((qq) => ({ qq, q: quotaFor(qq) })), [
+      { label: 'Trimestre', render: (r) => h('b', null, periodLabel(r.qq)) },
+      { label: 'Meta RR', cls: 'num', render: (r) => fmt.usd(r.q?.rrTarget) },
+      { label: 'Realizado RR', cls: 'num', render: (r) => fmt.usd(r.q?.rrDone) },
+      { label: 'Meta NB', cls: 'num', render: (r) => fmt.usd(r.q?.nbTarget) },
+      { label: 'Realizado NB', cls: 'num', render: (r) => fmt.usd(r.q?.nbDone) },
+      { label: '% TB', cls: 'num', render: (r) => { const t = (Number(r.q?.rrTarget) || 0) + (Number(r.q?.nbTarget) || 0); return t ? Math.round((((Number(r.q?.rrDone) || 0) + (Number(r.q?.nbDone) || 0)) / t) * 100) + '%' : '—'; } },
+    ], { onRow: (r) => openForm('quotas', r.q || { period: r.qq }, { title: `Meta ${periodLabel(r.qq)} (USD NTA)` }) }) : null,
+  );
+}
+function monthQuarter(ym) {
+  const fe = store.db.settings.fyEndMonth;
+  const d = ym + '-01';
+  return `FY${fyOf(d, fe)}-T${fyQuarterOf(d, fe)}`;
+}
+
+// ---------- Agenda executiva ----------
+function execBlock(key, b) {
+  const list = store.db.engagements.filter((e) => inRange(e.date, b)).sort((x, y) => x.date.localeCompare(y.date));
+  return section(`Agenda executiva · ${periodLabel(key)} (${list.length})`, h('div', { class: 'card-actions' },
+    h('small', { class: 'muted' }, 'Executive & Champion Alignment — reuniões com diretores e eventos'),
+    btn('＋ Encontro / evento', () => openForm('engagements', { date: b.start }), 'small primary')),
+    table(list, engagementCols(true), { onRow: (e) => openForm('engagements', e), empty: 'Nada previsto. Planeje ao menos um encontro com diretor por conta-chave no trimestre.' }));
 }

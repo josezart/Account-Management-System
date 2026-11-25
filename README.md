@@ -8,16 +8,20 @@ os dados ficam num **cofre criptografado** (`data/vault.json`) que só abre com 
 
 | Tela | Para quê |
 |---|---|
-| **Painel** | KPIs da carteira, prioridades sugeridas, contas em risco, renovações, follow-ups, qualidade dos dados |
-| **Minha semana** | Quadro de tarefas, % de tarefas ligadas a vendas, carga x capacidade, meta de prospecção, prioridades sugeridas automaticamente e checklist da revisão semanal |
-| **Contas** | Lista com saúde, último contato, próxima ação e renovação; ficha da conta com resumo, contatos (organograma + engajamento), licenças, comercial (MEDDIC), histórico, técnico, treinamentos, whitespace e **briefing** pronto para reunião |
-| **Comercial** | Pipeline por estágio, lista de oportunidades e histórico de vendas por ano fiscal |
-| **Licenças** | Parque, calendário de renovações, TECS expirado |
-| **Técnico** | Atividades técnicas (PoC, apresentações, sessões, visitas…) com métricas, Tech Pool / Temp Keys e treinamentos |
-| **Prospecção** | Funil fora→dentro / dentro→fora, mapa de whitespace (contas × famílias de produto) e atalhos de pesquisa por conta |
-| **Planejamento** | Objetivos anuais → trimestrais → mensais (ano fiscal terminando em outubro), com métricas automáticas do período |
-| **Mapa** | Contas no mapa, coloridas pela saúde |
-| **Registro rápido** | Registra uma reunião/visita em 1 minuto, cria a tarefa de follow-up, a atividade técnica e gera o texto pronto para colar no Salesforce |
+| **Painel** | Atingimento da meta do trimestre (USD NTA), MRP, pré-pipeline, contas em risco, encontros executivos e prioridades sugeridas |
+| **Minha semana** | Quadro de tarefas, % ligado a vendas, carga x capacidade, prioridades sugeridas e revisão semanal |
+| **Contas** | Contas e subcontas (ex.: Marinha → CPSN, DDNM…), com saúde, próxima ação, MRP e pré-pipeline. Na ficha: **mapa da conta** (unidades, pessoas-chave, desafios, soluções Ansys, hipótese de valor, matriz unidade × domínio), pessoas & agenda executiva, licenças/MRP/vendas, pré-pipeline, histórico, técnico e briefing |
+| **Pré-pipeline** | Tudo o que vem antes do Salesforce: hipóteses e whitespaces por estágio (Hipótese → Pronto para o Salesforce), MEDDIC, whitespace da carteira e atalhos de pesquisa |
+| **Renovações & licenças** | MRP por trimestre fiscal (USD NTA), licenças do Ansys Licensing Portal e histórico de vendas NB/RR |
+| **Técnico** | Atividades técnicas, Tech Pool / Temp Keys e treinamentos (ALH) |
+| **Planejamento** | Ano → trimestre → mês: meta editável (Renewals e New Business), agenda executiva (8 Pillars), objetivos e notas |
+| **Registro rápido** | Registra reunião/visita, cria o follow-up e gera o texto para o Salesforce |
+
+## Atualizar uma versão já publicada
+
+1. Envie os arquivos novos por *Add file → Upload files* (o GitHub substitui os de mesmo nome). A pasta `data/` não está no pacote, então seus dados no repositório não são tocados.
+2. Aguarde 1–2 minutos e recarregue o site com **Ctrl+F5**.
+3. Se recebeu uma base nova (`dados-v2.json`): *Configurações → Dados / importação → Importar JSON* no modo **Substituir tudo**. O token do GitHub é mantido.
 
 ## Publicar no GitHub (uma vez, ~10 minutos)
 

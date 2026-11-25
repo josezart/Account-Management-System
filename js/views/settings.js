@@ -183,15 +183,14 @@ function importCsv(entity, text) {
       const f = map[i];
       if (!f || v === '') return;
       if (f.type === 'account') {
-        const a = accs.find((x) => x.id === v || norm(x.name) === norm(v) || (x.ansysNumber && String(x.ansysNumber) === String(v).trim()));
+        const a = accs.find((x) => x.id === v || norm(x.name) === norm(v) || norm(x.sfName) === norm(v) || (x.ansysNumber && String(x.ansysNumber) === String(v).trim()));
         if (a) rec.accountId = a.id;
         else miss.add(v);
       } else if (f.type === 'date') rec[f.key] = toDate(v);
       else if (['number', 'money', 'rating'].includes(f.type)) rec[f.key] = toNum(v);
       else if (f.type === 'check') rec[f.key] = /^(1|sim|s|x|true|yes)$/i.test(v.trim());
       else if (f.type === 'contacts') rec[f.key] = [];
-      else if (f.type === 'divisions') rec[f.key] = v.split('|').map((n) => ({ name: n.trim(), subs: [] }));
-      else rec[f.key] = v.trim();
+            else rec[f.key] = v.trim();
     });
     if (entity !== 'accounts' && !rec.accountId && FIELDS[entity].some((f) => f.key === 'accountId' && f.required)) return;
     const existing = rec.id && S.get(entity, rec.id);
@@ -203,7 +202,7 @@ function importCsv(entity, text) {
 
 function data() {
   const db = S.store.db;
-  const ent = h('select', null, Object.entries(ENTITIES).filter(([k]) => k !== 'plans').map(([k, v]) => h('option', { value: k }, v.plural)));
+  const ent = h('select', null, Object.entries(ENTITIES).filter(([k]) => !['plans', 'quotas'].includes(k)).map(([k, v]) => h('option', { value: k }, v.plural)));
   const csvFile = h('input', { type: 'file', accept: '.csv,text/csv' });
   const jsonFile = h('input', { type: 'file', accept: '.json' });
   const mode = h('select', null, h('option', { value: 'merge' }, 'Mesclar (atualiza por id, adiciona novos)'), h('option', { value: 'replace' }, 'Substituir tudo'));

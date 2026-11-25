@@ -1,6 +1,6 @@
 // Componentes de interface: elementos, modal, formulários, tabelas, abas.
 import { store, upsert, remove, all } from './store.js';
-import { FIELDS, ENTITIES, DEFAULTS, PRODUCTS } from './schema.js';
+import { FIELDS, ENTITIES, DEFAULTS, PRODUCTS, QUARTERS } from './schema.js';
 import { fmt, norm, today } from './util.js';
 
 const PROPS = new Set(['value', 'checked', 'selected', 'disabled', 'multiple', 'indeterminate']);
@@ -73,10 +73,10 @@ export function confirmBox(msg, okLabel = 'Confirmar') {
 // ---------- Badges ----------
 export const badge = (text, cls = '') => h('span', { class: 'badge ' + cls }, text);
 export function healthBadge(st) {
-  if (st.level === 'na') return badge('—', 'muted');
+  if (st.level === 'na') return badge(st.reactive ? 'reativo' : '—', 'muted');
   return h('span', { class: 'health ' + st.level, title: st.reasons.map((r) => '• ' + r.t).join('\n') || 'Tudo em dia' }, h('b', null, st.score), ' ', { ok: 'Saudável', warn: 'Atenção', risk: 'Risco' }[st.level]);
 }
-const STAGE_CLS = (s) => (s === 'Ganha' ? 'ok' : s === 'Perdida' ? 'risk' : s === 'Em espera' ? 'muted' : 'info');
+const STAGE_CLS = (s) => (s === '✓ No Salesforce' ? 'ok' : s === 'Descartado' ? 'risk' : s === 'Pausado' ? 'muted' : s && s.startsWith('6') ? 'accent' : 'info');
 export const stageBadge = (s) => badge(s || '—', STAGE_CLS(s));
 export function engagementDots(n) {
   n = Number(n) || 0;
@@ -146,8 +146,23 @@ function textToDivisions(txt) {
   });
   return out;
 }
+export function accLabel(a) {
+  const p = a.parentId && all('accounts').find((x) => x.id === a.parentId);
+  return p ? `${p.name} › ${a.name}` : a.name;
+}
 export function accountOptions() {
-  return [...all('accounts')].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  return [...all('accounts')].map((a) => ({ ...a, label: accLabel(a) })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+}
+export function unitLabel(u) {
+  const units = all('units');
+  const parts = [u.name];
+  let p = u.parentUnitId && units.find((x) => x.id === u.parentUnitId);
+  let guard = 0;
+  while (p && guard++ < 8) {
+    parts.unshift(p.name);
+    p = p.parentUnitId && units.find((x) => x.id === p.parentUnitId);
+  }
+  return parts.join(' › ');
 }
 
 export function buildForm(entity, rec) {
@@ -156,30 +171,36 @@ export function buildForm(entity, rec) {
   const form = h('form', { class: 'form-grid', onsubmit: (e) => e.preventDefault() });
   const lists = h('div', { style: { display: 'none' } });
   const contactSelects = [];
-  const oppSelects = [];
-  const divLists = [];
+  const prospectSelects = [];
+  const unitSelects = [];
 
   const getAcc = () => (inputs.accountId ? inputs.accountId.value : rec.accountId);
   const fillContacts = (sel, multi, value) => {
     const accId = getAcc();
-    const list = all('contacts').filter((c) => !accId || c.accountId === accId).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    const fam = new Set([accId]);
+    all('accounts').forEach((a) => (a.parentId === accId || a.id === all('accounts').find((x) => x.id === accId)?.parentId) && fam.add(a.id));
+    const list = all('contacts').filter((c) => !accId || fam.has(c.accountId)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     sel.innerHTML = '';
     if (!multi) sel.append(h('option', { value: '' }, '—'));
     list.forEach((c) => sel.append(h('option', { value: c.id, selected: multi ? (value || []).includes(c.id) : value === c.id }, c.name + (c.title ? ` · ${c.title}` : ''))));
   };
-  const fillOpps = (sel, value) => {
+  const familyIdsOf = (accId) => {
+    const ids = new Set([accId]);
+    all('accounts').forEach((a) => a.parentId === accId && ids.add(a.id));
+    return ids;
+  };
+  const fillProspects = (sel, value) => {
     const accId = getAcc();
     sel.innerHTML = '';
     sel.append(h('option', { value: '' }, '—'));
-    all('opportunities').filter((o) => !accId || o.accountId === accId).forEach((o) => sel.append(h('option', { value: o.id, selected: value === o.id }, o.name)));
+    all('prospects').filter((o) => !accId || familyIdsOf(accId).has(o.accountId)).forEach((o) => sel.append(h('option', { value: o.id, selected: value === o.id }, o.title)));
   };
-  const fillDivs = (dl) => {
-    const acc = all('accounts').find((a) => a.id === getAcc());
-    dl.innerHTML = '';
-    (acc?.divisions || []).forEach((d) => {
-      dl.append(h('option', { value: d.name }));
-      (d.subs || []).forEach((s) => dl.append(h('option', { value: `${d.name} › ${s}` })));
-    });
+  const fillUnits = (sel, value) => {
+    const accId = getAcc();
+    sel.innerHTML = '';
+    sel.append(h('option', { value: '' }, '—'));
+    all('units').filter((u) => (!accId || familyIdsOf(accId).has(u.accountId)) && u.id !== rec.id).map((u) => ({ u, l: unitLabel(u) })).sort((a, b) => a.l.localeCompare(b.l, 'pt-BR'))
+      .forEach(({ u, l }) => sel.append(h('option', { value: u.id, selected: value === u.id }, l)));
   };
 
   for (const f of fields) {
@@ -207,12 +228,26 @@ export function buildForm(entity, rec) {
         input = h('select', { id }, [1, 2, 3, 4, 5].map((n) => h('option', { value: n, selected: Number(v) === n }, `${n} — ${['frio', 'pouco', 'neutro', 'engajado', 'muito engajado'][n - 1]}`)));
         break;
       case 'account':
-        input = h('select', { id }, h('option', { value: '' }, '—'), accountOptions().map((a) => h('option', { value: a.id, selected: v === a.id }, a.name)));
+        input = h('select', { id }, h('option', { value: '' }, '—'), accountOptions().map((a) => h('option', { value: a.id, selected: v === a.id }, a.label)));
         input.addEventListener('change', () => {
           contactSelects.forEach(([s, m]) => fillContacts(s, m, m ? [...s.selectedOptions].map((o) => o.value) : s.value));
-          oppSelects.forEach((s) => fillOpps(s, s.value));
-          divLists.forEach(fillDivs);
+          prospectSelects.forEach((s) => fillProspects(s, s.value));
+          unitSelects.forEach((s) => fillUnits(s, s.value));
         });
+        break;
+      case 'parent':
+        input = h('select', { id }, h('option', { value: '' }, '— (conta principal)'), accountOptions().filter((a) => a.id !== rec.id && !a.parentId).map((a) => h('option', { value: a.id, selected: v === a.id }, a.name)));
+        break;
+      case 'unit':
+        input = h('select', { id });
+        unitSelects.push(input);
+        break;
+      case 'prospect':
+        input = h('select', { id });
+        prospectSelects.push(input);
+        break;
+      case 'period':
+        input = h('select', { id }, h('option', { value: '' }, '—'), QUARTERS.map((q) => h('option', { value: q, selected: v === q }, q.replace('FY20', 'FY').replace('-T', ' · Q'))));
         break;
       case 'contact':
         input = h('select', { id });
@@ -221,10 +256,6 @@ export function buildForm(entity, rec) {
       case 'contacts':
         input = h('select', { id, multiple: true, size: 4 });
         contactSelects.push([input, true]);
-        break;
-      case 'opportunity':
-        input = h('select', { id });
-        oppSelects.push(input);
         break;
       case 'team': {
         input = h('input', { id, type: 'text', value: v ?? '', list: 'dl_team' });
@@ -242,12 +273,6 @@ export function buildForm(entity, rec) {
       input.setAttribute('list', 'dl_products');
       if (!lists.querySelector('#dl_products')) lists.append(h('datalist', { id: 'dl_products' }, PRODUCTS.map((p) => h('option', { value: p }))));
     }
-    if (f.datalist === 'divisions') {
-      const dl = h('datalist', { id: 'dl_div_' + f.key });
-      lists.append(dl);
-      divLists.push(dl);
-      input.setAttribute('list', dl.id);
-    }
     if (f.required) input.required = true;
     inputs[f.key] = input;
     const wrap = f.type === 'check'
@@ -260,11 +285,14 @@ export function buildForm(entity, rec) {
     const f = fields.find((x) => inputs[x.key] === s);
     fillContacts(s, m, rec[f.key]);
   });
-  oppSelects.forEach((s) => {
+  prospectSelects.forEach((s) => {
     const f = fields.find((x) => inputs[x.key] === s);
-    fillOpps(s, rec[f.key]);
+    fillProspects(s, rec[f.key]);
   });
-  divLists.forEach(fillDivs);
+  unitSelects.forEach((s) => {
+    const f = fields.find((x) => inputs[x.key] === s);
+    fillUnits(s, rec[f.key]);
+  });
 
   const read = () => {
     const out = { ...rec };

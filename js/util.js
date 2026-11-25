@@ -62,7 +62,19 @@ export const fmt = {
     const [, m, d] = s.slice(0, 10).split('-');
     return `${d}/${m}`;
   },
-  money(v, cur = 'BRL') {
+  usd(v) {
+    if (v === null || v === undefined || v === '' || isNaN(Number(v))) return '—';
+    const n = Number(v);
+    const a = Math.abs(n);
+    if (a >= 1e6) return '$' + (n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + 'M';
+    if (a >= 1e3) return '$' + (n / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: a >= 1e5 ? 0 : 1 }) + 'k';
+    return '$' + n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+  },
+  usdFull(v) {
+    if (v === null || v === undefined || v === '' || isNaN(Number(v))) return '—';
+    return 'US$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+  },
+  money(v, cur = 'USD') {
     if (v === null || v === undefined || v === '' || isNaN(Number(v))) return '—';
     try {
       return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: cur || 'BRL', maximumFractionDigits: 0 });
@@ -71,11 +83,7 @@ export const fmt = {
     }
   },
   compact(v) {
-    if (!v) return 'R$ 0';
-    const n = Number(v);
-    if (n >= 1e6) return 'R$ ' + (n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi';
-    if (n >= 1e3) return 'R$ ' + (n / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil';
-    return 'R$ ' + n.toLocaleString('pt-BR');
+    return fmt.usd(v || 0);
   },
   rel(s, ref = today()) {
     if (!s) return '—';
@@ -129,7 +137,7 @@ export function currentPeriods(s = today(), fyEnd = 10) {
 }
 export function periodLabel(key) {
   if (/^FY\d{4}$/.test(key)) return `Ano fiscal ${key.slice(2)}`;
-  if (/^FY\d{4}-T[1-4]$/.test(key)) return `${key.slice(-2)} · FY${key.slice(4, 6)}`;
+  if (/^FY\d{4}-T[1-4]$/.test(key)) return `Q${key.slice(-1)} FY${key.slice(4, 6)}`;
   if (/^\d{4}-\d{2}$/.test(key)) return monthLabel(key);
   return key;
 }

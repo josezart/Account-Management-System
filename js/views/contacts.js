@@ -1,6 +1,6 @@
 import { store } from '../store.js';
 import { h, section, table, openForm, btn, badge, engagementDots } from '../ui.js';
-import { accName } from '../engine.js';
+import { accPath, unitName } from '../engine.js';
 import { ENUMS } from '../schema.js';
 import { fmt } from '../util.js';
 import { setParam } from '../main.js';
@@ -21,8 +21,8 @@ export default function contactsView({ params }) {
     ),
     section(`${rows.length} contatos`, null, table(rows, [
       { label: 'Nome', key: 'name', render: (c) => h('div', null, h('b', null, c.name), h('small', { class: 'block muted' }, c.title || '')) },
-      { label: 'Conta', sort: (c) => accName(c.accountId), render: (c) => h('a', { href: `#/account/${c.accountId}?tab=contacts`, class: 'link' }, accName(c.accountId)) },
-      { label: 'Divisão', key: 'division' },
+      { label: 'Conta', sort: (c) => accPath(c.accountId), render: (c) => h('a', { href: `#/account/${c.accountId}?tab=contacts`, class: 'link' }, accPath(c.accountId)) },
+      { label: 'Unidade', sort: (c) => unitName(c.unitId), render: (c) => unitName(c.unitId) || '—' },
       { label: 'Papel', key: 'role', render: (c) => badge(c.role || '—', roleCls(c.role)) },
       { label: 'Nível', key: 'level' },
       { label: 'Engajamento', key: 'engagement', render: (c) => engagementDots(c.engagement) },
